@@ -76,9 +76,23 @@ import json
 from google.adk.agents.llm_agent import Agent
 
 arxiv_search_agent = Agent(
-    model=os.environ.get("MODEL"),
+    model=os.environ.get("MODEL", "gemini-2.5-flash-lite"),
     name="arxiv_search_agent",
-    instruction="Search ArXiv for related papers using the given query and summarize the results as structured JSON, extracting titles, authors, and summary links.",
+    instruction="""You are an ArXiv search assistant. Use the 'arxiv_search' tool to fetch recent papers based on a given query.
+The current year is 2026. 
+
+You MUST process the tool's raw output and return a strict JSON list of objects.
+Expected schema for each object:
+{
+  "title": "Title of the paper",
+  "authors": ["Author 1", "Author 2"],
+  "published": "Publication date directly from arxiv",
+  "pdf_url": "The direct PDF link",
+  "arxiv_id": "Extracted arXiv ID (e.g., from the URL or similar)",
+  "abstract": "A short summary from the paper"
+}
+
+Ensure the output is ONLY valid JSON, with no markdown code blocks (like ```json) or conversational text.""",
     output_key="arxiv_results",
     tools=[arxiv_search],
 )

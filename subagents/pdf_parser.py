@@ -41,9 +41,22 @@ def pdf_extract(url: str) -> str:
 from google.adk.agents.llm_agent import Agent
 
 pdf_parser_agent = Agent(
-    model=os.environ.get("MODEL"),
+    model=os.environ.get("MODEL", "gemini-2.5-flash-lite"),
     name="pdf_parser_agent",
-    instruction="Extract and summarize the text from a provided PDF URL or local file path into a structured format containing 'tldr', 'methodology', and 'key_takeaways'.",
+    instruction="""You are an academic PDF parsing assistant. Use the 'pdf_extract' tool to extract the entire text from a provided PDF URL or local file path.
+Once extracted, synthesize a structured summary.
+You MUST process the result and return a strict JSON object mapping the critical components of the document.
+Expected JSON format:
+{
+  "tldr": "A high-level 1-sentence abstract of the paper",
+  "methodology": "Detailed overview of the architecture, data, or experiments used",
+  "key_takeaways": [
+    "Important stat or finding 1",
+    "Important stat or finding 2"
+  ]
+}
+
+Ensure the output is ONLY valid JSON, with no markdown code blocks (like ```json) or conversational text.""",
     output_key="parsed_pdf_summary",
     tools=[pdf_extract],
 )
