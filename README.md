@@ -1,27 +1,47 @@
 # ADK Research Agent
 
-A comprehensive research orchestration agent built with Google ADK. It uses a `root_agent` to coordinate multiple subagents, allowing you to search arXiv, parse PDFs, fetch citation graphs, search Semantic Scholar or Google, and look up conference submission rules all in one place.
+A research orchestration app built with Google ADK. A single `root_agent` coordinates three specialist sub-agents: ArXiv search, PDF parsing, and Google Search (built-in ADK tool).
+
+## Layout
+
+```
+subagents/
+├── __init__.py          # exports root_agent
+├── agent.py             # root orchestrator
+├── tools/               # plain tool functions only
+│   ├── arxiv_search.py  # arxiv_search()
+│   └── pdf_parser.py    # pdf_extract()
+└── agents/              # LLM sub-agents wired to tools
+    ├── arxiv_agent.py
+    ├── pdf_agent.py
+    └── google_agent.py
+```
+
+## Workflow
+
+1. **ArXiv** — Search for highly relevant papers (prefer 2025/2026), filter by abstract, return up to three with PDF links and ArXiv IDs.
+2. **PDF** — Parse each selected PDF and extract methodology and key takeaways.
+3. **Google Search** — Find recent blog posts, discussions, or news; search author names as needed.
+4. **NeurIPS 2026** — Look up Call for Papers details (page limits, blind submission, formatting) via web search.
+
+The root agent then synthesizes a report and suggests what to think about and what to write.
 
 ## How to Run
 
-### Run in Terminal
-To run the agent interactively in your terminal, use the following command:
+### Terminal
+
 ```bash
 adk run subagents
 ```
 
-### Run on the Web
-To launch the agent's web interface, use:
+### Web UI
+
 ```bash
 adk web subagents
 ```
 
+Set `MODEL`, `GOOGLE_API_KEY`, and (for Vertex if used) related env vars in `.env` as required by your ADK setup.
 
-## Available Sub-Agents
-* `arxiv_search_agent`: Finds relevant papers on ArXiv.
-* `pdf_parser_agent`: Extracts and summarizes content from PDF URLs or local files.
-* `citation_graph_agent`: Maps backward and forward citations for papers.
-* `semantic_scholar_search`: Explores academic literature.
-* `google_search_agent`: Fetches recent news and discussions.
-* `conference_rules_agent`: Retrieves formatting constraints for major ML conferences.
+## Dependencies
 
+See [requirements.txt](requirements.txt): `google-adk`, `requests`, `pymupdf`, `arxiv`.

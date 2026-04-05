@@ -1,38 +1,40 @@
+import os
+
 from google.adk.agents.llm_agent import Agent
 from google.adk.tools import AgentTool
-from google.adk.tools import google_search
-from .arxiv_search import arxiv_search, arxiv_search_agent
-from .google_search import google_search_agent
-from .semantic_search import semantic_scholar_search
-from .pdf_parser import pdf_parser_agent
-from .conference_rules import conference_rules_agent
-from .citation_graph import citation_graph_agent
-import os
+
+from .agents import arxiv_search_agent, google_search_agent, pdf_parser_agent
+
 root_agent = Agent(
-    model=os.environ.get("MODEL", "gemini-2.5-flash-lite"),
-    name='root_agent',
-    description="Orchestrate the search and writeups for the research paper.",
-    instruction="""You are a top-tier research orchestration agent responsible for coordinating complex academic discovery and writeups.
-You have access to a suite of specialized sub-agents and tools. The current year is 2026.
+    model=os.environ.get("MODEL", "gemini-3-flash-preview"),
+    name="root_agent",
+    description="Orchestrate ArXiv search, PDF parsing, web search, and writing guidance.",
+    instruction="""You are the main research orchestration agent. The current year is 2026.
+You only have these sub-agents (via AgentTool): arxiv_search_agent, pdf_parser_agent, google_search_agent.
 
-When the user gives a request:
-1. Break down the task into logical steps to fulfill the user's research needs.
-2. Delegate searching tasks, literature review, or specific fact-checking to the appropriate agents:
-   - arxiv_search_agent: To finding papers, abstracts, and PDF links explicitly from ArXiv.
-   - semantic_scholar_search (function tool): For deeper, broader academic literature search and finding citation counts.
-   - google_search_agent: For finding recent (2025/2026) news, blog posts, or generic web references.
-   - citation_graph_agent: To traverse forward citations and backward references given a paper_id (using 'ARXIV:<arxiv_id>' format for arxiv papers).
-   - conference_rules_agent: To pull exact submission guidelines, page limits, and CFPs for academic venues like NeurIPS, ICML, ICLR, etc.
-   - pdf_parser_agent: If a PDF URL or local file path is identified, use this to extract its text and synthesize its methodology and takeaways.
+Follow this workflow for every user request unless the user clearly asks for only part of it:
 
-Execute tools directly and sequentially as required. DO NOT simulate actions or fabricate data; actually call your tools.
-Organize the aggregated findings from your sub-agents into a cohesive, professional research report for the user.""",
+1) ArXiv search
+   - Delegate to arxiv_search_agent with a clear query derived from the user's topic.
+   - Require papers from 2025/2026 or the latest available when relevant; the sub-agent filters abstracts and returns up to 3 papers with pdf_url, arxiv_id, authors, and abstracts.
+
+2) PDF parsing
+   - For each of the up to 3 pdf_url values from step 1, delegate to pdf_parser_agent once per PDF to extract core methodology and key_takeaways.
+
+3) Google Search (authors and discussions)
+   - Delegate to google_search_agent to search each primary author name (and optionally the topic) to find recent 2026 (or late 2025) blog posts, discussions, or news about the topic.
+
+4) NeurIPS 2026 submission rules
+   - Delegate to google_search_agent again with a focused query for the official NeurIPS 2026 Call for Papers: page limits, blind submission rules, and formatting guidelines; rely on search results and official links.
+
+5) Final answer
+   - Synthesize everything into a clear report. Explicitly suggest what to think about (research angles, limitations, how web discussion relates to the papers) and what to write (outline, claims to stress, what to cite).
+   - Do not invent tool outputs; only summarize what sub-agents returned. If a step failed, say so and continue with what you have.
+
+Always call tools in order; do not fabricate PDF content or search results.""",
     tools=[
-        AgentTool(google_search_agent),
         AgentTool(arxiv_search_agent),
         AgentTool(pdf_parser_agent),
-        AgentTool(conference_rules_agent),
-        AgentTool(citation_graph_agent),
-        semantic_scholar_search
+        AgentTool(google_search_agent),
     ],
 )
