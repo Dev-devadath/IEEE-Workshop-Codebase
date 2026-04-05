@@ -1,0 +1,532 @@
+{
+  "name": "My workflow 13",
+  "nodes": [
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.chatTrigger",
+      "typeVersion": 1.4,
+      "position": [
+        0,
+        0
+      ],
+      "id": "dde9a077-7eb5-4c8b-8e49-db87bc19a758",
+      "name": "When chat message received",
+      "webhookId": "aa830289-647a-4ac0-ade6-cffbf5da91cc"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=User Req: {{ $('When chat message received').item.json.chatInput }}\n\nPapers:\n{{ JSON.stringify($json.papers, null, 2) }}",
+        "options": {
+          "systemMessage": "=You are an expert AI research analyst and engineer.\n\nYou will receive a list of research papers (title, summary, authors, link) along with the user’s goal.\n\nYour responsibilities:\n\n1. FILTER RELEVANT PAPERS\n- Select only highly relevant papers for the user’s goal max top 5 papers\n- Prioritize:\n  - Practical implementations\n  - And related domains\n  - Papers with clear methods, experiments, or real-world use\n- Ignore weak, generic, or unrelated papers\n\n2. EXTRACT KEY DETAILS\nFor each relevant paper, extract:\n- title\n- authors (comma-separated)\n- link\n- short summary (2–3 lines, simple)\n- key idea (1 line)\n- why it is relevant to the user’s goal\n\n3. USE GOOGLE SHEETS TOOL\n- For EACH selected paper, call the Google Sheets tool to store:\n  title, authors, link, short_summary, key_idea, relevance_reason\n- Do this for all selected papers\n- Ensure clean and structured values\n\n4. FINAL RESPONSE TO USER\nAfter storing data, respond with:\n\n- A concise summary of what kind of papers were found\n- What patterns or approaches are common\n- Clear, actionable next steps:\n  - What to build first\n  - What concepts to learn\n  - What approach to try\n\nKeep it practical and implementation-focused.\nAvoid generic advice.\n\nIMPORTANT:\n- Always store data using the Google Sheets tool before responding\n- Do not output raw JSON\n- Do not skip tool usage if relevant papers exist\n- If no relevant papers are found, clearly say so and suggest how to refine the search"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3,
+      "position": [
+        1360,
+        0
+      ],
+      "id": "246c11e4-ebb0-4992-9b4c-ff2724c70119",
+      "name": "AI Agent"
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "mode": "list",
+          "value": "gpt-4.1-mini"
+        },
+        "builtInTools": {},
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.3,
+      "position": [
+        -368,
+        288
+      ],
+      "id": "4ed5edc7-2c6e-49d0-b3b3-782d5e5ccde7",
+      "name": "OpenAI Chat Model",
+      "credentials": {
+        "openAiApi": {
+          "id": "JaqkVrJCpm1SxVUp",
+          "name": "Phlexi2"
+        }
+      }
+    },
+    {
+      "parameters": {},
+      "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
+      "typeVersion": 1.3,
+      "position": [
+        1408,
+        176
+      ],
+      "id": "a0ee708a-c00d-47bc-96a5-d0a9c9b55265",
+      "name": "Simple Memory"
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "gpt-4o-mini",
+          "mode": "list",
+          "cachedResultName": "GPT-4O-MINI"
+        },
+        "responses": {
+          "values": [
+            {
+              "role": "system",
+              "content": "=You are an expert research query generator for arXiv.\n\nYour job is to convert a user's intent into highly effective arXiv search queries.\n\nRules:\n- Generate 3 to 6 diverse search queries\n- Focus on technical, research-oriented phrasing\n- Include synonyms and alternative terminology\n- Prefer concise keyword-based queries (not full sentences)\n- Include domain-specific terms (AI, robotics, ML, CV, etc. when relevant)\n- Use combinations like:\n  - \"humanoid robot locomotion\"\n  - \"bipedal walking reinforcement learning\"\n  - \"robot perception computer vision\"\n- Avoid explanations, only output queries\n\nOutput format:\nReturn ONLY a raw JSON array. Do not wrap in text.\n\nExample:\n[\"humanoid robot locomotion\", \"bipedal walking reinforcement learning\", \"robot gait control neural networks\"]"
+            },
+            {
+              "content": "={{ $json.chatInput }}"
+            }
+          ]
+        },
+        "builtInTools": {},
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 2.1,
+      "position": [
+        -624,
+        176
+      ],
+      "id": "a9522c30-87eb-4b27-a44e-a7f882d53c09",
+      "name": "Message a model",
+      "credentials": {
+        "openAiApi": {
+          "id": "JaqkVrJCpm1SxVUp",
+          "name": "Phlexi2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "url": "http://export.arxiv.org/api/query",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "search_query",
+              "value": "={{ $json.search_query }}"
+            },
+            {
+              "name": "max_results",
+              "value": "10"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        672,
+        0
+      ],
+      "id": "b1887f92-0ecb-40b5-94ea-ee36cca09043",
+      "name": "HTTP Request1"
+    },
+    {
+      "parameters": {
+        "jsCode": "const raw = $json.content.parts[0].text;\n\nconst queries = JSON.parse(raw.trim());\n\nconst search_query = queries\n  .map(q => `all:${q}`)\n  .join(' OR ');\n\nreturn [\n  {\n    json: {\n      queries,\n      search_query\n    }\n  }\n];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        480,
+        0
+      ],
+      "id": "78abe6a8-3b4e-453b-92db-081ecb7862cd",
+      "name": "Code in JavaScript"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.xml",
+      "typeVersion": 1,
+      "position": [
+        816,
+        0
+      ],
+      "id": "f75e1d81-4ba0-4cce-ac6f-c13b7ecda80f",
+      "name": "XML"
+    },
+    {
+      "parameters": {
+        "jsCode": "let entries = $json.feed?.entry ?? [];\n\n// Normalize to array\nentries = Array.isArray(entries) ? entries : [entries];\n\nreturn entries.map(e => ({\n  json: {\n    title: e.title || '',\n    summary: e.summary || '',\n    link: e.id || '',\n    published: e.published || '',\n    authors: Array.isArray(e.author)\n      ? e.author.map(a => a.name)\n      : e.author?.name\n        ? [e.author.name]\n        : []\n  }\n}));"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        976,
+        0
+      ],
+      "id": "89e43b98-eb12-4e37-bc84-248e0e8495ae",
+      "name": "Code in JavaScript1"
+    },
+    {
+      "parameters": {
+        "aggregate": "aggregateAllItemData",
+        "destinationFieldName": "papers",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.aggregate",
+      "typeVersion": 1,
+      "position": [
+        1184,
+        0
+      ],
+      "id": "944b3332-151a-4f2d-90bb-6392091da903",
+      "name": "Aggregate"
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "https://docs.google.com/spreadsheets/d/1SiPnZF1jnGERlEkxEWnMGkHIFIt2LAfHKxMBgxuD6lA/edit?gid=0#gid=0",
+          "mode": "url"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Sheet1",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1SiPnZF1jnGERlEkxEWnMGkHIFIt2LAfHKxMBgxuD6lA/edit#gid=0"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Title": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('Title', ``, 'string') }}",
+            "Authors": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('Authors', ``, 'string') }}",
+            "Summary": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('Summary', ``, 'string') }}",
+            "key_idea": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('key_idea', ``, 'string') }}",
+            "relevance_reason": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('relevance_reason', ``, 'string') }}",
+            "link": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('link', `Pass the link for the specific paper`, 'string') }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "Title",
+              "displayName": "Title",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Authors",
+              "displayName": "Authors",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Summary",
+              "displayName": "Summary",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "key_idea",
+              "displayName": "key_idea",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "relevance_reason",
+              "displayName": "relevance_reason",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "link",
+              "displayName": "link",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheetsTool",
+      "typeVersion": 4.7,
+      "position": [
+        1520,
+        208
+      ],
+      "id": "e38de9b9-b840-4c53-996f-92f396d3bba4",
+      "name": "Append row in sheet in Google Sheets",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "hDusNLySH9ExgDtf",
+          "name": "Google Sheets PVT"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "models/gemini-3.1-flash-lite-preview",
+          "mode": "list",
+          "cachedResultName": "models/gemini-3.1-flash-lite-preview"
+        },
+        "messages": {
+          "values": [
+            {
+              "content": "You are an expert research query generator for arXiv.\n\nYour job is to convert a user's intent into highly effective arXiv search queries.\n\nRules:\n- Generate 3 to 6 diverse search queries\n- Focus on technical, research-oriented phrasing\n- Include synonyms and alternative terminology\n- Prefer concise keyword-based queries (not full sentences)\n- Include domain-specific terms (AI, robotics, ML, CV, etc. when relevant)\n- Use combinations like:\n  - \"humanoid robot locomotion\"\n  - \"bipedal walking reinforcement learning\"\n  - \"robot perception computer vision\"\n- Avoid explanations, only output queries\n\nOutput format:\nReturn ONLY a raw JSON array. Do not wrap in text.\n\nExample:\n[\"humanoid robot locomotion\", \"bipedal walking reinforcement learning\", \"robot gait control neural networks\"]",
+              "role": "model"
+            },
+            {
+              "content": "={{ $json.chatInput }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.googleGemini",
+      "typeVersion": 1,
+      "position": [
+        176,
+        0
+      ],
+      "id": "607083e8-107e-4c6d-a6c8-02f27d33727e",
+      "name": "Message a model1",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "0ioMiayndhxMoWsG",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "modelName": "models/gemini-3-flash-preview",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        1280,
+        256
+      ],
+      "id": "538a0cf6-630b-47f7-bfec-e5736fb229f6",
+      "name": "Google Gemini Chat Model",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "0ioMiayndhxMoWsG",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "content": "Get everything into 1 list",
+        "height": 80,
+        "width": 176
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        1152,
+        -64
+      ],
+      "typeVersion": 1,
+      "id": "ab9d95ad-63bd-400f-ab68-f46ff1100f63",
+      "name": "Sticky Note"
+    },
+    {
+      "parameters": {
+        "content": "Combine search quries",
+        "height": 128,
+        "width": 176
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        432,
+        -112
+      ],
+      "typeVersion": 1,
+      "id": "58bfd8b0-0f94-49d5-a4e9-9c3b9bafaf3f",
+      "name": "Sticky Note1"
+    },
+    {
+      "parameters": {
+        "content": "Clean the data",
+        "height": 80,
+        "width": 150
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        960,
+        -64
+      ],
+      "typeVersion": 1,
+      "id": "0a714c62-9146-4277-82d8-f07ec9500905",
+      "name": "Sticky Note2"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "When chat message received": {
+      "main": [
+        [
+          {
+            "node": "Message a model1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat Model": {
+      "ai_languageModel": [
+        []
+      ]
+    },
+    "Simple Memory": {
+      "ai_memory": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent": {
+      "main": [
+        []
+      ]
+    },
+    "Message a model": {
+      "main": [
+        []
+      ]
+    },
+    "Code in JavaScript": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request1": {
+      "main": [
+        [
+          {
+            "node": "XML",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "XML": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript1": {
+      "main": [
+        [
+          {
+            "node": "Aggregate",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Aggregate": {
+      "main": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Append row in sheet in Google Sheets": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Message a model1": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "fbb44cc6-63cd-4c7d-bc7d-e0e8eaa90a84",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "d1b9144a6d98022c03b686c08f6f4aed887b01faab8c66f75864c257e7446dfa"
+  },
+  "id": "giuiZhMzFet7nfyz",
+  "tags": []
+}
